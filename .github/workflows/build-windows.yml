@@ -1,3 +1,4 @@
+# https://github.com/sqlitebrowser/sqlitebrowser/wiki/Win64-setup-%E2%80%94-Compiling-SQLCipher
 name: Build - Windows
 
 on:
@@ -16,6 +17,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup OpenSSL
+        if: matrix.arch == 'Win32'
+        # https://github.com/actions/runner-images/blob/main/images/windows/scripts/build/Install-OpenSSL.ps1 & Win32OpenSSL.exe /? & Win32OpenSSL.exe /LOG="a.log" /SAVEINF="inf.inf"
+        run: |
+          $url = "https://slproweb.com/download/Win32OpenSSL-1_1_1w.exe"
+          $path = "C:\temp\Win32OpenSSL.exe"
+          Invoke-WebRequest -Uri $url -OutFile $path
+          Start-Process -FilePath $path -ArgumentList "/silent","/sp-","/suppressmsgboxes","/DIR=`"$env:ProgramFiles\OpenSSL`"","/TASKS=copytobin" -Wait
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
@@ -70,7 +80,6 @@ jobs:
 
       - name: Prepare artifacts
         run: |
-          cd C:\
           Compress-Archive -Path C:\dev\* -DestinationPath build-artifacts-${{ matrix.arch }}.zip
 
       - name: Upload artifacts
