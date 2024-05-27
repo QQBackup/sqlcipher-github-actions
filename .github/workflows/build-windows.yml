@@ -9,6 +9,9 @@ on:
     paths:
       - ".github/workflows/build-windows.yml"
 
+env:
+  DYNAMIC_OPENSSL_VERSION: 3_3_0
+
 jobs:
   build:
     name: Build
@@ -28,15 +31,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup OpenSSL 1.1.1 for Win32
-        if: matrix.arch == 'Win32'
-        # https://github.com/actions/runner-images/blob/main/images/windows/scripts/build/Install-OpenSSL.ps1 & Win32OpenSSL.exe /? & Win32OpenSSL.exe /LOG="a.log" /SAVEINF="inf.inf"
-        run: |
-          $url = "https://slproweb.com/download/Win32OpenSSL-1_1_1w.exe"
-          $path = "C:\temp\Win32OpenSSL.exe"
-          Invoke-WebRequest -Uri $url -OutFile $path
-          Start-Process -FilePath $path -ArgumentList "/silent","/sp-","/suppressmsgboxes","/DIR=`"$env:ProgramFiles\OpenSSL`"","/TASKS=copytobin" -Wait
-
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
         with:
@@ -50,10 +44,19 @@ jobs:
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
-      - name: Setup OpenSSL (static)
+      - name: Setup OpenSSL (statically linked)
         # https://blog.hamaluik.ca/posts/statically-linking-sqlcipher-on-windows
         run: |
           vcpkg install openssl:${{ env.VCPKG_DEFAULT_TRIPLET }} --binarysource="clear;x-gha,readwrite"
+
+      - name: Setup OpenSSL (dynamically linked)
+        # https://github.com/actions/runner-images/blob/main/images/windows/scripts/build/Install-OpenSSL.ps1 & Win32OpenSSL.exe /? & Win32OpenSSL.exe /LOG="a.log" /SAVEINF="inf.inf"
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          $url = "https://slproweb.com/download/Win${{ matrix.arch == 'Win32' && '32' || matrix.arch == 'Win64' && '64' }}OpenSSL-${{ env.DYNAMIC_OPENSSL_VERSION }}.exe"
+          $path = "C:\OpenSSL.exe"
+          Invoke-WebRequest -Uri $url -OutFile $path
+          Start-Process -FilePath $path -ArgumentList "/silent","/sp-","/suppressmsgboxes","/DIR=`"$env:ProgramFiles\OpenSSL`"","/TASKS=copytobin" -Wait
 
       - name: Init folders
         continue-on-error: true
@@ -87,6 +90,12 @@ jobs:
           copy sqlite3.c,sqlite3.h,sqlcipher.dll,sqlcipher.lib,sqlcipher-dynamic.exe,"$env:ProgramFiles\OpenSSL\libcrypto-*" sqlcipher
         working-directory: C:\dev\SQLCipher-${{ matrix.arch }}
 
+      - name: Copy LICENSE
+        # ref: https://github.com/actions/runner-images/blob/main/images/windows/scripts/build/Install-OpenSSL.ps1#L12
+        run: |
+          copy LICENSE* sqlcipher
+        working-directory: C:\dev\SQLCipher-${{ matrix.arch }}
+
       - name: Prepare artifacts
         run: |
           Compress-Archive -Path C:\dev\SQLCipher-${{ matrix.arch }}\sqlcipher -DestinationPath build-artifacts-${{ matrix.arch }}.zip
@@ -104,4 +113,4 @@ jobs:
           tag_name: latest
           files: |
             build-artifacts-${{ matrix.arch }}.zip
-            C:\dev\SQLCipher-${{ matrix.arch }}\sqlcipher-${{ matrix.arch == 'Win32' && 'x86' || matrix.arch == 'Win64' && 'x64' }}.exe
+            C:/dev/SQLCipher-${{ matrix.arch }}/sqlcipher-${{ matrix.arch == 'Win32' && 'x86' || matrix.arch == 'Win64' && 'x64' }}.exe
