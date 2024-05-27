@@ -55,8 +55,11 @@ jobs:
           $ProgressPreference = 'SilentlyContinue'
           $url = "https://slproweb.com/download/Win${{ matrix.arch == 'Win32' && '32' || matrix.arch == 'Win64' && '64' }}OpenSSL-${{ env.DYNAMIC_OPENSSL_VERSION }}.exe"
           $path = "C:\OpenSSL.exe"
-          Invoke-WebRequest -Uri $url -OutFile $path
-          Start-Process -FilePath $path -ArgumentList "/silent","/sp-","/suppressmsgboxes","/DIR=`"$env:ProgramFiles\OpenSSL`"","/TASKS=copytobin" -Wait
+          $client = new-object System.Net.WebClient
+          $client.DownloadFile($url, $path)
+          # Invoke-WebRequest -Uri $url -OutFile $path
+          Start-Process -FilePath $path -ArgumentList "/silent","/sp-","/suppressmsgboxes","/DIR=`"C:\OpenSSL`"","/TASKS=copytobin" -Wait
+          tree /F C:\OpenSSL
 
       - name: Init folders
         continue-on-error: true
@@ -77,7 +80,7 @@ jobs:
         run: |
           nmake /f Makefile.msc clean
           nmake /f Makefile.msc ${{ env.SQLCIPHER_NMAKE_VARS }} LTLINKOPTS="`"$env:VCPKG_INSTALLATION_ROOT\packages\openssl_${{ env.VCPKG_DEFAULT_TRIPLET }}\lib\libcrypto.lib`"" TCCOPTS="`"-I$env:VCPKG_INSTALLATION_ROOT\packages\openssl_${{ env.VCPKG_DEFAULT_TRIPLET }}\include`"" RCCOPTS="`"-I$env:VCPKG_INSTALLATION_ROOT\packages\openssl_${{ env.VCPKG_DEFAULT_TRIPLET }}\include`"" LTLIBPATHS="`"/LIBPATH:$env:VCPKG_INSTALLATION_ROOT\packages\openssl_${{ env.VCPKG_DEFAULT_TRIPLET }}\lib`"" OPT_FEATURE_FLAGS="${{ env.SQLCIPHER_NMAKE_OPT_FEATURE_FLAGS }} `"-I$env:VCPKG_INSTALLATION_ROOT\packages\openssl_${{ env.VCPKG_DEFAULT_TRIPLET }}\include`"" LTLIBS="libcrypto.lib libssl.lib WS2_32.Lib Gdi32.Lib AdvAPI32.Lib Crypt32.Lib User32.Lib"
-          copy sqlcipher.exe,"$env:ProgramFiles\OpenSSL\libcrypto-*" sqlcipher
+          copy sqlcipher.exe,"C:\OpenSSL\libcrypto-*" sqlcipher
           copy sqlcipher.exe sqlcipher-${{ matrix.arch == 'Win32' && 'x86' || matrix.arch == 'Win64' && 'x64' }}.exe
         working-directory: C:\dev\SQLCipher-${{ matrix.arch }}
 
@@ -85,9 +88,9 @@ jobs:
         # ref: https://github.com/actions/runner-images/blob/main/images/windows/scripts/build/Install-OpenSSL.ps1#L12
         run: |
           nmake /f Makefile.msc clean
-          nmake /f Makefile.msc ${{ env.SQLCIPHER_NMAKE_VARS }} LTLINKOPTS="`"$env:ProgramFiles\OpenSSL\lib\libcrypto.lib`"" OPT_FEATURE_FLAGS="${{ env.SQLCIPHER_NMAKE_OPT_FEATURE_FLAGS }} `"-I$env:ProgramFiles\OpenSSL\include`""
+          nmake /f Makefile.msc ${{ env.SQLCIPHER_NMAKE_VARS }} LTLINKOPTS="`"C:\OpenSSL\lib\libcrypto.lib`"" OPT_FEATURE_FLAGS="${{ env.SQLCIPHER_NMAKE_OPT_FEATURE_FLAGS }} `"-IC:\OpenSSL\include`""
           move sqlcipher.exe sqlcipher-dynamic.exe
-          copy sqlite3.c,sqlite3.h,sqlcipher.dll,sqlcipher.lib,sqlcipher-dynamic.exe,"$env:ProgramFiles\OpenSSL\libcrypto-*" sqlcipher
+          copy sqlite3.c,sqlite3.h,sqlcipher.dll,sqlcipher.lib,sqlcipher-dynamic.exe,"C:\OpenSSL\libcrypto-*" sqlcipher
         working-directory: C:\dev\SQLCipher-${{ matrix.arch }}
 
       - name: Copy LICENSE
