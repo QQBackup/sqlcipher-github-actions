@@ -26,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2022]
+        os: [windows-latest]
         arch: ["Win32", "Win64"]
     steps:
       - name: Checkout
@@ -75,6 +75,7 @@ jobs:
         working-directory: C:\dev\SQLCipher-${{ matrix.arch }}
 
       - name: Build SQLCipher (dynamically linked)
+        # use this to check dependencies: https://dependencywalker.com/
         run: |
           mkdir sqlcipher\dynamic
           nmake /f Makefile.msc clean
@@ -113,3 +114,4 @@ jobs:
           files: |
             build-artifacts-${{ matrix.arch }}.zip
             C:/dev/SQLCipher-${{ matrix.arch }}/sqlcipher-${{ matrix.arch == 'Win32' && 'x86' || matrix.arch == 'Win64' && 'x64' }}.exe
+          make_latest: true
