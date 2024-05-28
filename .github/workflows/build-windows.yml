@@ -45,9 +45,8 @@ jobs:
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
       - name: Setup OpenSSL
-        # https://blog.hamaluik.ca/posts/statically-linking-sqlcipher-on-windows
         run: |
-          vcpkg install openssl:${{ env.VCPKG_DEFAULT_TRIPLET }} openssl:${{ env.VCPKG_DEFAULT_TRIPLET }}-static --binarysource="clear;x-gha,readwrite"
+          vcpkg install openssl:${{ env.VCPKG_DEFAULT_TRIPLET }}-static --binarysource="clear;x-gha,readwrite"
 
       - name: Init folders
         continue-on-error: true
@@ -65,28 +64,18 @@ jobs:
 
       - name: Build SQLCipher (statically linked)
         # ref: https://github.com/actions/runner-images/blob/main/images/windows/scripts/build/Install-OpenSSL.ps1#L12
+        # ref: https://blog.hamaluik.ca/posts/statically-linking-sqlcipher-on-windows
         run: |
           nmake /f Makefile.msc clean
-          nmake /f Makefile.msc ${{ env.SQLCIPHER_NMAKE_VARS }} LTLINKOPTS="`"$env:VCPKG_INSTALLATION_ROOT\packages\openssl_${{ env.VCPKG_DEFAULT_TRIPLET }}\lib\libcrypto.lib`"" TCCOPTS="`"-I$env:VCPKG_INSTALLATION_ROOT\packages\openssl_${{ env.VCPKG_DEFAULT_TRIPLET }}\include`"" RCCOPTS="`"-I$env:VCPKG_INSTALLATION_ROOT\packages\openssl_${{ env.VCPKG_DEFAULT_TRIPLET }}\include`"" LTLIBPATHS="`"/LIBPATH:$env:VCPKG_INSTALLATION_ROOT\packages\openssl_${{ env.VCPKG_DEFAULT_TRIPLET }}\lib`"" OPT_FEATURE_FLAGS="${{ env.SQLCIPHER_NMAKE_OPT_FEATURE_FLAGS }} `"-I$env:VCPKG_INSTALLATION_ROOT\packages\openssl_${{ env.VCPKG_DEFAULT_TRIPLET }}\include`"" LTLIBS="libcrypto.lib libssl.lib WS2_32.Lib Gdi32.Lib AdvAPI32.Lib Crypt32.Lib User32.Lib"
+          nmake /f Makefile.msc ${{ env.SQLCIPHER_NMAKE_VARS }} LTLINKOPTS="`"$env:VCPKG_INSTALLATION_ROOT\packages\openssl_${{ env.VCPKG_DEFAULT_TRIPLET }}-static\lib\libcrypto.lib`"" TCCOPTS="`"-I$env:VCPKG_INSTALLATION_ROOT\packages\openssl_${{ env.VCPKG_DEFAULT_TRIPLET }}-static\include`"" RCCOPTS="`"-I$env:VCPKG_INSTALLATION_ROOT\packages\openssl_${{ env.VCPKG_DEFAULT_TRIPLET }}-static\include`"" LTLIBPATHS="`"/LIBPATH:$env:VCPKG_INSTALLATION_ROOT\packages\openssl_${{ env.VCPKG_DEFAULT_TRIPLET }}-static\lib`"" OPT_FEATURE_FLAGS="${{ env.SQLCIPHER_NMAKE_OPT_FEATURE_FLAGS }} `"-I$env:VCPKG_INSTALLATION_ROOT\packages\openssl_${{ env.VCPKG_DEFAULT_TRIPLET }}-static\include`"" LTLIBS="libcrypto.lib libssl.lib WS2_32.Lib Gdi32.Lib AdvAPI32.Lib Crypt32.Lib User32.Lib"
           copy sqlcipher.exe sqlcipher-${{ matrix.arch == 'Win32' && 'x86' || matrix.arch == 'Win64' && 'x64' }}.exe
           copy sqlcipher.exe sqlcipher
-        working-directory: C:\dev\SQLCipher-${{ matrix.arch }}
-
-      - name: Build SQLCipher (dynamically linked + amalgamation)
-        # ref: https://github.com/actions/runner-images/blob/main/images/windows/scripts/build/Install-OpenSSL.ps1#L12
-        run: |
-          nmake /f Makefile.msc clean
-          nmake /f Makefile.msc ${{ env.SQLCIPHER_NMAKE_VARS }} LTLINKOPTS="`"$env:VCPKG_INSTALLATION_ROOT\packages\openssl_${{ env.VCPKG_DEFAULT_TRIPLET }}\lib\libcrypto.lib`"" OPT_FEATURE_FLAGS="${{ env.SQLCIPHER_NMAKE_OPT_FEATURE_FLAGS }} `"-I$env:VCPKG_INSTALLATION_ROOT\packages\openssl_${{ env.VCPKG_DEFAULT_TRIPLET }}\include`""
-          copy sqlcipher.exe,"$env:VCPKG_INSTALLATION_ROOT\packages\openssl_${{ env.VCPKG_DEFAULT_TRIPLET }}\libcrypto-*" sqlcipher
-          move sqlcipher.exe sqlcipher-dynamic.exe
-          copy sqlite3.c,sqlite3.h,sqlcipher.dll,sqlcipher.lib,sqlcipher-dynamic.exe,"$env:VCPKG_INSTALLATION_ROOT\packages\openssl_${{ env.VCPKG_DEFAULT_TRIPLET }}\libcrypto-*" sqlcipher
+          copy sqlite3.c,sqlite3.h,sqlcipher.dll,sqlcipher.lib sqlcipher
         working-directory: C:\dev\SQLCipher-${{ matrix.arch }}
 
       - name: Copy LICENSE
-        # ref: https://github.com/actions/runner-images/blob/main/images/windows/scripts/build/Install-OpenSSL.ps1#L12
         run: |
-          copy LICENSE* sqlcipher
-        working-directory: C:\dev\SQLCipher-${{ matrix.arch }}
+          copy LICENSE* C:\dev\SQLCipher-${{ matrix.arch }}\sqlcipher
 
       - name: Prepare artifacts
         run: |
